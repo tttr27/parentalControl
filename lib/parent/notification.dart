@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
+
 
 class NotificationScreen extends StatefulWidget {
   final String parentID;
@@ -13,6 +15,11 @@ class NotificationScreen extends StatefulWidget {
 class _NotificationScreenState extends State<NotificationScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   Stream<List<Map<String, dynamic>>>? _notificationsStream;
+
+  String getCurrentDay() {
+  DateTime now = DateTime.now();
+  return DateFormat('EEEE').format(now); // Returns the current day, e.g., "Wednesday"
+}
 
   @override
   void initState() {
@@ -38,26 +45,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
           .collection('rewardRequests')
           .doc(requestID)
           .update({'isApproved': true});
-
-      DocumentSnapshot childDoc = await _firestore
-          .collection('parents')
-          .doc(widget.parentID)
-          .collection('children')
-          .doc(childID)
-          .get();
-
-      if (childDoc.exists) {
-        Map<String, dynamic> usageLimits = childDoc['usageLimit'] as Map<String, dynamic>;
-        int remainingTime = usageLimits['remainingTime'] as int? ?? 0;
-        remainingTime += timeReward;
-
-        await _firestore
-            .collection('parents')
-            .doc(widget.parentID)
-            .collection('children')
-            .doc(childID)
-            .update({'usageLimit.remainingTime': remainingTime});
-      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Reward approved successfully.')),

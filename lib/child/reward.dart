@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
 class RewardScreen extends StatefulWidget {
   final String childID;
@@ -57,15 +58,21 @@ class _RewardScreenState extends State<RewardScreen> {
   bool _hasClaimedToday = false;
   Map<String, bool> _taskCompletionStatus = {};
 
+  String getCurrentDay() {
+    DateTime now = DateTime.now();
+    return DateFormat('EEEE')
+        .format(now); // Returns the current day, e.g., "Wednesday"
+  }
+
   List<Map<String, dynamic>> _availableTasks = [
     {
       'taskName': 'Reading book 1 hour',
-      'timeReward': 30,
+      'timeReward': 60,
       'taskDescription': 'Completed reading a book for 1 hour',
     },
     {
       'taskName': 'Sporting 30 minutes',
-      'timeReward': 10,
+      'timeReward': 30,
       'taskDescription': 'Completed 30 minutes of sporting activity',
     },
     {
@@ -124,7 +131,8 @@ class _RewardScreenState extends State<RewardScreen> {
           .collection('children')
           .doc(widget.childID)
           .collection('rewardRequests')
-          .where('requestDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+          .where('requestDate',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
           .where('requestDate', isLessThan: Timestamp.fromDate(endOfDay))
           .get();
 
@@ -132,7 +140,8 @@ class _RewardScreenState extends State<RewardScreen> {
         for (var doc in rewardDocs.docs) {
           Map<String, dynamic> reward = doc.data() as Map<String, dynamic>;
           String taskName = reward['taskName'];
-          _taskCompletionStatus[taskName] = true; // Mark task as completed today
+          _taskCompletionStatus[taskName] =
+              true; // Mark task as completed today
         }
       });
     } catch (e) {
@@ -158,7 +167,8 @@ class _RewardScreenState extends State<RewardScreen> {
       );
 
       setState(() {
-        _taskCompletionStatus[task['taskName']] = true; // Mark task as completed today
+        _taskCompletionStatus[task['taskName']] =
+            true; // Mark task as completed today
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -172,9 +182,76 @@ class _RewardScreenState extends State<RewardScreen> {
     }
   }
 
+  Future<void> _claimReward(String rewardID, int timeReward) async {
+    try {
+      // Fetch the child's current remaining time and daily usage limits
+      DocumentSnapshot childDoc = await _firestore
+          .collection('parents')
+          .doc(widget.parentID)
+          .collection('children')
+          .doc(widget.childID)
+          .get();
+
+      if (childDoc.exists) {
+        // Get the current day's name
+        String today = getCurrentDay();
+
+        // Retrieve the daily usage limits map
+        Map<String, dynamic> dailyUsageLimits = childDoc['usageLimit']['dailyUsageLimits'];
+
+        // Get the current time limit for today
+        int currentLimit = dailyUsageLimits[today] ?? 0;
+
+        // Add the reward time to today's limit
+        int updatedLimit = currentLimit + timeReward;
+
+        // Update the child's time limit for today in Firestore
+        await _firestore
+            .collection('parents')
+            .doc(widget.parentID)
+            .collection('children')
+            .doc(widget.childID)
+            .update({
+          'usageLimit.dailyUsageLimits.$today': updatedLimit,
+        });
+
+        // Mark the reward as claimed
+        await _firestore
+            .collection('parents')
+            .doc(widget.parentID)
+            .collection('children')
+            .doc(widget.childID)
+            .collection('rewardRequests')
+            .doc(rewardID)
+            .update({'isClaimed': true});
+
+        // Update the local state to reflect the claim
+        setState(() {
+          _approvedRewards = _approvedRewards.map((reward) {
+            if (reward['rewardID'] == rewardID) {
+              reward['isClaimed'] = true;
+            }
+            return reward;
+          }).toList();
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Reward claimed successfully!')),
+        );
+      }
+    } catch (e) {
+      print(e);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to claim reward.')),
+      );
+    }
+  }
+
   bool _isToday(DateTime date) {
     final now = DateTime.now();
-    return date.year == now.year && date.month == now.month && date.day == now.day;
+    return date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
   }
 
   @override
@@ -204,7 +281,9 @@ class _RewardScreenState extends State<RewardScreen> {
                           itemCount: _availableTasks.length,
                           itemBuilder: (context, index) {
                             final task = _availableTasks[index];
-                            bool isCompleted = _taskCompletionStatus[task['taskName']] ?? false;
+                            bool isCompleted =
+                                _taskCompletionStatus[task['taskName']] ??
+                                    false;
 
                             return ListTile(
                               title: Text(task['taskName']),
@@ -213,7 +292,8 @@ class _RewardScreenState extends State<RewardScreen> {
                                 onPressed: isCompleted || _hasClaimedToday
                                     ? null
                                     : () => _requestReward(task),
-                                child: Text(isCompleted ? 'Requested' : 'Mark as Done'),
+                                child: Text(
+                                    isCompleted ? 'Requested' : 'Mark as Done'),
                               ),
                             );
                           },
@@ -228,63 +308,12 @@ class _RewardScreenState extends State<RewardScreen> {
                             return ListTile(
                               title: Text(reward['taskName']),
                               subtitle: Text('${reward['timeReward']} minutes'),
-                              trailing: isClaimed || _hasClaimedToday
-    ? Text('Claimed', style: TextStyle(color: Colors.green))
-    : ElevatedButton(
-        onPressed: () async {
-          try {
-            // Fetch the child's current remaining time
-            DocumentSnapshot childDoc = await _firestore
-                .collection('parents')
-                .doc(widget.parentID)
-                .collection('children')
-                .doc(widget.childID)
-                .get();
-
-            if (childDoc.exists) {
-              int remainingTime = childDoc['usageLimit']['remainingTime'] ?? 0;
-              remainingTime += reward['timeReward'] as int;
-
-              // Update the child's remaining time in Firestore
-              await _firestore
-                  .collection('parents')
-                  .doc(widget.parentID)
-                  .collection('children')
-                  .doc(widget.childID)
-                  .update({
-                'usageLimit.remainingTime': remainingTime,
-              });
-
-              // Mark the reward as claimed
-              await _firestore
-                  .collection('parents')
-                  .doc(widget.parentID)
-                  .collection('children')
-                  .doc(widget.childID)
-                  .collection('rewardRequests')
-                  .doc(reward['rewardID'])
-                  .update({'isClaimed': true});
-
-              // Update the local state to reflect the claim
-              setState(() {
-                reward['isClaimed'] = true;
-                _hasClaimedToday = true;
-              });
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Reward claimed successfully!')),
-              );
-            }
-          } catch (e) {
-            print(e);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed to claim reward.')),
-            );
-          }
-        },
-        child: Text('Claim'),
-      ),
-
+                              trailing: isClaimed
+                                  ? Text('Claimed', style: TextStyle(color: Colors.green))
+                                  : ElevatedButton(
+                                      onPressed: () => _claimReward(reward['rewardID'], reward['timeReward']),
+                                      child: Text('Claim'),
+                                    ),
                             );
                           },
                         ),

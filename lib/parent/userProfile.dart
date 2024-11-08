@@ -193,7 +193,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen> {
       if (value.isEmpty) {
         _newPasswordError = 'Please enter your password';
       } else if (value.length < 6) {
-        _newPasswordError = 'Password must be at least 6 characters long';
+        _newPasswordError = 'Password must be at least 8 characters long';
       } else {
         _newPasswordError = null;
       }
@@ -220,10 +220,8 @@ class _ParentProfileScreenState extends State<ParentProfileScreen> {
       await user?.reauthenticateWithCredential(credential);
       if (_newPasswordController.text == _confirmPasswordController.text) {
         await user?.updatePassword(_newPasswordController.text);
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => ForgotPasswordScreen()),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Password is changed successfully')));
+        Navigator.of(context).pop();
       } else {
         setState(() {
           _confirmPasswordError = 'Passwords do not match';
@@ -300,10 +298,7 @@ class _ParentProfileScreenState extends State<ParentProfileScreen> {
                 SizedBox(height: 10),
                 TextButton(
                   onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => ForgotPasswordScreen()),
-                    );
+                    Navigator.of(context).pop();
                   },
                   child: Text('Forgot Password?'),
                 ),
