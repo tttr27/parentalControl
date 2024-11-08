@@ -25,13 +25,13 @@ Features including:
 <img src="https://github.com/user-attachments/assets/c95c5275-131b-4384-bf3a-d354fceceec1" width="200" />
 <img src="https://github.com/user-attachments/assets/a0f31f7e-8481-4437-aa46-c135963a1a06" width="200" />
 
-</n>
+
 ## Application Features: Child
 <img src="https://github.com/user-attachments/assets/42f941fa-ea9f-428a-9e15-c4dfcc15f1e6" width="200" />
 <img src="https://github.com/user-attachments/assets/a3cbc669-18ed-445e-864a-d17ce79c3b45" width="200" />
 <img src="https://github.com/user-attachments/assets/9cc1829b-88ff-4e38-a8f8-7fe066ffbf7f" width="200" />
 
-</n>
+
 ## Tools
 <li>Flutter</li>
 <li>Firebase</li>
